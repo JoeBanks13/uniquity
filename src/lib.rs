@@ -12,6 +12,15 @@
 // private[this] val sequenceMask = -1L ^ (-1L << sequenceBits)
 // private[this] var lastTimestamp = -1L
 
+#![feature(test)]
+
+const WORKER_ID_BITS: u64 = 5;
+const DATACENTER_ID_BITS: u64 = 5;
+const SEQUENCE_BITS: u64 = 12;
+const WORKER_ID_SHIFT: u64 = SEQUENCE_BITS;
+const TIMESTAMP_LEFT_SHIFT: u64 = SEQUENCE_BITS + WORKER_ID_BITS + DATACENTER_ID_BITS;
+const SEQUENCE_MASK: u64 = ((-1 as i64) ^ (-1 << SEQUENCE_BITS)) as u64;
+
 #[cfg(test)]
 mod tests;
 
@@ -27,19 +36,17 @@ pub struct Generator {
 
 impl Generator {
     pub fn generate(&mut self) -> u64 {
-        let worker_id_bits = 5;
-        let datacenter_id_bits = 5;
-        let sequence_bits = 12;
-        let worker_id_shift = sequence_bits;
-        let timestamp_left_shift = sequence_bits + worker_id_bits + datacenter_id_bits;
-        let sequence_mask = ((-1 as i64) ^ (-1 << sequence_bits)) as u64;
+        let time = time::precise_time_ns();
 
-        let seq = (self.sequence + 1) & sequence_mask;
+        let mut seq = 0;
 
-        let id = ((time::precise_time_ns() - self.epoch) << timestamp_left_shift)
-            | (self.worker_id << worker_id_shift) | (self.sequence);
+        if time == self.lasttime {
+            seq = (self.sequence + 1) & SEQUENCE_MASK;
+            self.sequence = seq;
+        }
 
-        self.sequence = seq;
+        let id = (time - self.epoch) << TIMESTAMP_LEFT_SHIFT | (self.worker_id << WORKER_ID_SHIFT)
+            | (seq);
 
         return id;
     }
@@ -48,7 +55,7 @@ impl Generator {
 pub fn new(worker_id: u64) -> Generator {
     return Generator {
         worker_id: worker_id,
-        epoch: 10,
+        epoch: 0,
         sequence: 0,
         lasttime: 0,
     };

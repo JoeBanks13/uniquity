@@ -1,2 +1,2 @@
 # uniquity
-Snowflake implementation in Rust
+Snowflake implementation in Rust.
